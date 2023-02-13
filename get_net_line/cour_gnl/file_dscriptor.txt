@@ -1,0 +1,58 @@
+Qu'est ce qu'un file descriptor ?
+
+Un file descriptor permet d'identifier un fichier (au sens large) en vue de lire ou d'écrire dedans.
+
+Qu'appelle-je un fichier "au sens large" ? Tout ce qu'on appelle "fichier" au sens linux :
+- les dossiers (par exemple /home/toto)
+- les fichiers de données (par exemple /home/toto/fichier.txt),
+- les sockets réseaux,
+- les liens symboliques,
+- un tube (ou pipe en anglais, le fameux | qu'on voit souvent sous linux)
+- l'entrée standard (/dev/stdin), la sortie standard (/dev/stdout), la sortie d'erreur standard (/dev/stderr)
+- et bien d'autres ...
+
+À quoi ça sert ?
+
+Ton programme peut potentiellement interagir avec n'importe quel(s) fichier(s) (au sens large) et donc le jour où tu voudras par exemple écrire dans un fichier, il faudra indiquer à fprintf.
+
+Quand tu as débuté en C, on t'a sans doute expliqué que le jour où tu voulais écrire dans un terminal, tu allais devoir écrire par exemple : printf("coucou");. Sous-entendu, écris dans stdout la chaîne de caractère coucou.
+
+Maintenant supposons que tu veuilles écrire sur la sortie d'erreur, ou dans un fichier de donnée, il va te falloir une fonction qui te permette de dire dans quoi écrire. C'est le rôle du file descriptor.
+
+L'instruction précédente est équivalente à fprintf(stdout, "coucou");. Si on veut écrire dans la sortie d'erreur on écrirait fprintf(stderr, "coucou");.
+
+Note que sur le même principe, stdin est le file descriptor dans lequel lit scanf (entrée standard), et cette fonction est en fait équivalent à fscanf(stdin, ...).
+
+Pourquoi avoir créé des file descriptor ?
+
+Les flux standards sont directement utilisables et donc il n'y a pas besoin de préparer un file descriptor pour y accéder. Ce ne serait évidemment pas le cas pour lire ou écrire un fichier quelconque : comment le programme pourrait deviner de quel fichier on parle ? As-t'on envie de systématiquement passer le chemin de ce fichier et de le retrouver sur le disque dur ? C'est la raison qui motive l'utilisation d'un file descriptor.
+
+Concrètement un file descriptor est un entier, et le système a été "préparé" pour que quand le programme écrive dedans, celui-ci sache avec qui il doit travailler. Cette préparation à un coût : il faut trouver le fichier sur le disque dur, vérifier que le programme à le droit d'y accéder, etc. Ce n'est pas une opération anodine, et en tout cas, pas un travail qu'on voudra déclencher à chaque fois que notre programme veut lire ou écrire dans un fichier.
+
+Comment manipuler des file descriptor ? (fichiers réguliers)
+
+Pour un fichier régulier, c'est assuré par la fonction fopen. En fonction de qui lance le programme et des droits associés à ce fichier, le système va ou non accepter de créer un file descriptor, et c'est pourquoi le retour de fopen doit être contrôler.
+
+Tant que ce file descriptor accédant au fichier en lecture (resp. en écriture) existe on peut lire (resp. écrire) dedans.
+
+Une fois que l'on a fini de travailler à ce fichier, il faut signaler au système quand il peut le relâcher. C'est le rôle de fclose. Il est indispensable de fermer le fichier proprement, car l'écriture effective de donnée dans un fichier n'est garantie que lorsqu'on ferme le fichier. En effet, pour optimiser le déroulement programme, le système peut décider d'attendre d'avoir un peu plus de données à écrire avant de procéder à l'écriture. Ce choix technique est dû au fait qu'une opération d'entrée sortie est une opération lente en informatique, donc on essaye d'en limiter le nombre. Par ailleurs, laisser un file descriptor ouvert peut entraîner des trous de sécurité.
+
+Ainsi, en C, ouvrir un fichier se fait ainsi :
+
+#include <stdio.h>
+
+int main() {
+  const char * filename = "/home/toto.txt";
+  int x = 7;
+
+  FILE * fd = fopen(filename, "w");
+  if (fd) { // succès
+    // utilisation du fichier
+    fprintf(fd, "coucou %d\n", x);
+    fclose(fd);
+  } else { // échec
+    fprintf(stderr, "Can't read %s\n", filename);
+  }
+
+  return 0;
+}
